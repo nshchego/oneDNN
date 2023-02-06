@@ -536,6 +536,28 @@ public:
         }
     }
 
+    void uni_vbroadcastsd(const Xbyak::Xmm &x, const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vmovsd(x, x, op);
+            vshufpd(x, x, x, 0x0);
+        } else {
+            movsd(x, op);
+            shufpd(x, x, 0x0);
+        }
+    }
+    void uni_vbroadcastsd(const Xbyak::Ymm &x, const Xbyak::Operand &op) {
+        if (op.isMEM() || is_valid_isa(avx2)) {
+            vbroadcastsd(x, op);
+        } else {
+            Xbyak::Xmm t(x.getIdx());
+            if (t.getIdx() != op.getIdx()) {
+                movsd(t, op);
+            }
+            vinsertf128(x, x, t, 1);
+            vshufpd(x, x, x, 0);
+        }
+    }
+
     void uni_vpbroadcastd(const Xbyak::Xmm &x, const Xbyak::Operand &op) {
         if (is_valid_isa(avx2))
             vpbroadcastd(x, op);
@@ -729,12 +751,30 @@ public:
         vpsignd(x1, x2, op);
     }
 
+    void uni_vpsubq(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+            const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpsubq(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                movups(x1, x2);
+            }
+            psubq(x1, op);
+        }
+    }
+    void uni_vpsubq(const Xbyak::Ymm &x1, const Xbyak::Ymm &x2,
+            const Xbyak::Operand &op) {
+        vpsubq(x1, x2, op);
+    }
+
     void uni_vpsubd(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
             const Xbyak::Operand &op) {
         if (is_valid_isa(avx))
             vpsubd(x1, x2, op);
         else {
-            assert(x1.getIdx() == x2.getIdx());
+            if (x1.getIdx() != x2.getIdx()) {
+                movups(x1, x2);
+            }
             psubd(x1, op);
         }
     }
@@ -1228,6 +1268,22 @@ public:
         vsqrtps(x, op);
     }
 
+    void uni_vpaddq(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+            const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpaddq(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                movdqa(x1, x2);
+            }
+            paddq(x1, op);
+        }
+    }
+    void uni_vpaddq(const Xbyak::Ymm &x1, const Xbyak::Ymm &x2,
+            const Xbyak::Operand &op) {
+        vpaddq(x1, x2, op);
+    }
+
     void uni_vpaddd(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
             const Xbyak::Operand &op) {
         if (is_valid_isa(avx))
@@ -1361,6 +1417,20 @@ public:
     void uni_vpsrld(
             const Xbyak::Ymm &x, const Xbyak::Operand &op, const int imm) {
         vpsrld(x, op, imm);
+    }
+
+    void uni_vpsrlq(const Xbyak::Xmm &x, const Xbyak::Operand &op, const int imm) {
+        if (is_valid_isa(avx)) {
+            vpsrlq(x, op, imm);
+        } else {
+            if (x.getIdx() != op.getIdx()) {
+                uni_vmovups(x, op);
+            }
+            psrlq(x, imm);
+        }
+    }
+    void uni_vpsrlq(const Xbyak::Ymm &x, const Xbyak::Operand &op, const int imm) {
+        vpsrlq(x, op, imm);
     }
 
     void uni_vmaxps(const Xbyak::Xmm &x, const Xbyak::Operand &op1,
@@ -1899,6 +1969,66 @@ public:
     void uni_vpcmpeqd(const Xbyak::Ymm &x1, const Xbyak::Ymm &x2,
             const Xbyak::Operand &op) {
         vpcmpeqd(x1, x2, op);
+    }
+
+    void uni_vpcmpeqq(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+                      const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpcmpeqq(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                uni_vmovups(x1, x2);
+            }
+            pcmpeqq(x1, op);
+        }
+    }
+
+    void uni_vpcmpeqb(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+                      const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpcmpeqb(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                uni_vmovups(x1, x2);
+            }
+            pcmpeqb(x1, op);
+        }
+    }
+
+    void uni_vpcmpgtd(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+                      const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpcmpgtd(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                uni_vmovups(x1, x2);
+            }
+            pcmpgtd(x1, op);
+        }
+    }
+
+    void uni_vpcmpgtq(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+                      const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpcmpgtq(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                uni_vmovups(x1, x2);
+            }
+            pcmpgtd(x1, op);
+        }
+    }
+
+    void uni_vpcmpgtb(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
+                      const Xbyak::Operand &op) {
+        if (is_valid_isa(avx)) {
+            vpcmpgtb(x1, x2, op);
+        } else {
+            if (x1.getIdx() != x2.getIdx()) {
+                uni_vmovups(x1, x2);
+            }
+            pcmpgtb(x1, op);
+        }
     }
 
     void uni_vpackusdw(const Xbyak::Xmm &x1, const Xbyak::Xmm &x2,
